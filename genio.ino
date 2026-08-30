@@ -20,18 +20,34 @@ int configuraBotao(int b1, int b2, int b3, int b4);
 
 int sequencia[13];
 
+// Configuracao LEDs
+int limiteLED;
+const int ledVermelho = 8;
+const int ledVerde = 9;
+const int ledAzul = 7;
+const int ledAmarelo = 6;
+const int ledDelay = 750;
+
 void setup()
 {
-    Serial.begin(9600);
-    iniciaJogo();
-    limiteLED = 3;
     Serial.begin(9600); // Inicializa a comunicação Serial
-  
+    randomSeed(analogRead(A0));
+
+    // Configura botoes
     pinMode(buttonPin0, INPUT_PULLUP);
     pinMode(buttonPin1, INPUT_PULLUP);
     pinMode(buttonPin2, INPUT_PULLUP);
     pinMode(buttonPin3, INPUT_PULLUP);
     pinMode(buttonPin4, INPUT_PULLUP);
+
+     // Inicia LEDs
+    pinMode(ledVermelho, OUTPUT);
+    pinMode(ledVerde, OUTPUT);
+    pinMode(ledAzul, OUTPUT);
+    pinMode(ledAmarelo, OUTPUT);
+
+    iniciaJogo();
+
 }
 
 void loop()
@@ -43,10 +59,8 @@ void loop()
 
 void iniciaJogo()
 {
-  Serial.begin(9600);
-  
-  randomSeed(analogRead(A0));
-  
+  limiteLED = 4;
+    
   for(int i=0 ;i<13; i++){
   	sequencia[i] = random(1,5);
   }
@@ -55,6 +69,8 @@ void iniciaJogo()
   	Serial.print(sequencia[i]);
     Serial.print(" ");
   }
+
+   piscaLED();
 }
 
 int configuraBotao(int b1, int b2, int b3, int b4) {
@@ -75,3 +91,40 @@ int configuraBotao(int b1, int b2, int b3, int b4) {
 
   return clique;
 }
+
+void piscaLED()
+{
+  int ledAtual;
+  for(int i=0; i<limiteLED; i++)
+  {
+    ledAtual = sequencia[i];
+    delay(ledDelay);
+    
+    if(ledAtual == 1)
+    {
+      digitalWrite(ledVermelho, HIGH);
+      delay(ledDelay);
+      digitalWrite(ledVermelho, LOW);
+    }
+    else if(ledAtual == 2)
+    {
+      digitalWrite(ledVerde, HIGH);
+      delay(ledDelay);
+      digitalWrite(ledVerde, LOW);
+    }
+    else if(ledAtual == 3)
+    {
+      digitalWrite(ledAzul, HIGH);
+      delay(ledDelay);
+      digitalWrite(ledAzul, LOW);
+    }
+    else if(ledAtual == 4)
+    {
+      digitalWrite(ledAmarelo, HIGH);
+      delay(ledDelay);
+      digitalWrite(ledAmarelo, LOW);
+    }
+    
+  }
+}
+
