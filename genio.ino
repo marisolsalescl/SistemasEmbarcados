@@ -134,5 +134,14 @@ void acendeLed(int cor)
 
   digitalWrite(led, LOW);
 }
+bool entradaJogador(int botaoPressionado, int sequencia) {
+  int botaoPressionado = configuraBotao();
 
-
+  if (botaoPressionado == sequencia) {
+    // acender o led
+    return true; // Entrada correta
+  } 
+  else {
+    return false; // Entrada incorreta
+  }
+}
