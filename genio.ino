@@ -12,7 +12,10 @@ const int ledDelay = 500;
 
 const int buzzer = 11;
 
-int jogo = 0; 
+int jogo = 0;
+
+unsigned long inicioTemporizador;
+const unsigned long tempoLimite = 5000;
 
 int sequencia[13];
 int passoAtual = 0;
@@ -30,7 +33,7 @@ volatile bool iniciar = false;
 void setup() {
     Serial.begin(9600);
     randomSeed(analogRead(A0));
-
+ 
   	pinMode(buttonPin0, INPUT_PULLUP);
     pinMode(buttonPin1, INPUT_PULLUP);
     pinMode(buttonPin2, INPUT_PULLUP);
@@ -70,6 +73,7 @@ void loop()
       );
 
       if (botaoLido != -1) {
+          inicioTemporizador = millis();
           tocaSomBotao(botaoLido);
 
           Serial.print("\nBotao pressionado: ");
@@ -117,6 +121,13 @@ void loop()
 
           delay(300); // Debounce simples
       }
+      
+      if(millis() - inicioTemporizador >= tempoLimite)
+      {
+         Serial.println("\n5 segundos passaram! Voce Perdeu!");
+         musicaDerrota();
+       	 jogo = 0;
+      }
     }
 }
 
@@ -145,12 +156,14 @@ int configuraBotao(int b1, int b2, int b3, int b4) {
 
 void piscaLED() {
     Serial.print("\nSequencia nivel:");
-
+    
     for (int i = 0; i < limiteSequencia; i++) {
         delay(300);
         acendeLed(sequencia[i]);
       Serial.print(sequencia[i]);
     }
+  
+  	inicioTemporizador = millis();
 }
 
 void acendeLed(int cor) {
