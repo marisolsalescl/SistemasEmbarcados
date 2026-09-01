@@ -93,14 +93,13 @@ void loop()
 
                   musicaNivel();
 
-                  // Mostra a nova sequência
-                  piscaLED();
+                  if (limiteSequencia < limiteMax) // Mostra a nova sequência
+                  	piscaLED();
 
                   // Chegou ao limite máximo
-                  if (limiteSequencia > limiteMax) {
+                  if (limiteSequencia >= limiteMax) {
                     Serial.println("Vitoria!");
                       musicaVitoria();
-                      iniciaJogo();
                   }
               }
 
