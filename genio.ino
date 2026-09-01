@@ -9,7 +9,7 @@ const int ledAzul = 8;
 const int ledAmarelo = 7;
 const int ledDelay = 500;
 
-int sequencia[4] = {1,2,3,4}; //teste
+int sequencia[13]; //teste
 int passoAtual = 0;
 int limiteLED = 4; // Quantidade de passos para a rodada
 
@@ -63,10 +63,10 @@ void loop() {
 }
 
 void iniciaJogo() {
-    limiteLED = 1; // Começa com 1 passo
+    limiteLED = 4;
     passoAtual = 0;
     Serial.print("sequencia");
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < limiteLED; i++){
         sequencia[i] = random(1, 5);
       Serial.print(sequencia[i]);
       
