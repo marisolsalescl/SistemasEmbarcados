@@ -9,24 +9,32 @@ int buttonPin4 = 5; // Botão 4
 
 int entradaUsuario = -1;
 
-// Protótipo da função
-int configuraBotao(int b1, int b2, int b3, int b4);
-
-// Sequencia de Leds/Botoes:
-// 1 - Vermelho;
-// 2 - Verde;
-// 3 - Azul;
-// 4 - Amarelo.
-
-int sequencia[13];
-
-// Configuracao LEDs
-int limiteLED;
 const int ledVermelho = 8;
 const int ledVerde = 9;
 const int ledAzul = 7;
 const int ledAmarelo = 6;
 const int ledDelay = 750;
+
+enum Cor {
+  VERMELHO,
+  VERDE,
+  AZUL,
+  AMARELO
+};
+
+Cor sequencia[13];
+
+// Configuracao LEDs
+int limiteLED;
+
+// Protótipo da função
+int configuraBotao(int b1, int b2, int b3, int b4);
+
+void iniciaJogo();
+
+void piscaLED();
+
+void acendeLed(Cor cor);
 
 void setup()
 {
@@ -62,7 +70,7 @@ void iniciaJogo()
   limiteLED = 4;
     
   for(int i=0 ;i<13; i++){
-  	sequencia[i] = random(1,5);
+  	sequencia[i] = (Cor)random(0,4);
   }
   
   for(int i=0; i<13; i++){
@@ -73,7 +81,8 @@ void iniciaJogo()
    piscaLED();
 }
 
-int configuraBotao(int b1, int b2, int b3, int b4) {
+int configuraBotao(int b1, int b2, int b3, int b4) 
+{
   int clique = -1; // -1 significa nenhum botão pressionado
 
   if (digitalRead(b1) == LOW) {
@@ -94,37 +103,43 @@ int configuraBotao(int b1, int b2, int b3, int b4) {
 
 void piscaLED()
 {
-  int ledAtual;
-  for(int i=0; i<limiteLED; i++)
+  for (int i = 0; i < limiteLED; i++)
   {
-    ledAtual = sequencia[i];
     delay(ledDelay);
-    
-    if(ledAtual == 1)
-    {
-      digitalWrite(ledVermelho, HIGH);
-      delay(ledDelay);
-      digitalWrite(ledVermelho, LOW);
-    }
-    else if(ledAtual == 2)
-    {
-      digitalWrite(ledVerde, HIGH);
-      delay(ledDelay);
-      digitalWrite(ledVerde, LOW);
-    }
-    else if(ledAtual == 3)
-    {
-      digitalWrite(ledAzul, HIGH);
-      delay(ledDelay);
-      digitalWrite(ledAzul, LOW);
-    }
-    else if(ledAtual == 4)
-    {
-      digitalWrite(ledAmarelo, HIGH);
-      delay(ledDelay);
-      digitalWrite(ledAmarelo, LOW);
-    }
-    
+
+    acendeLed(sequencia[i]);
   }
 }
+
+void acendeLed(Cor cor)
+{
+  int led;
+
+  switch (cor)
+  {
+    case VERMELHO:
+      led = ledVermelho;
+      break;
+
+    case VERDE:
+      led = ledVerde;
+      break;
+
+    case AZUL:
+      led = ledAzul;
+      break;
+
+    case AMARELO:
+      led = ledAmarelo;
+      break;
+  }
+
+
+  digitalWrite(led, HIGH);
+
+  delay(ledDelay);
+
+  digitalWrite(led, LOW);
+}
+
 
