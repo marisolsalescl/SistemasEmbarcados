@@ -15,14 +15,7 @@ const int ledAzul = 7;
 const int ledAmarelo = 6;
 const int ledDelay = 750;
 
-enum Cor {
-  VERMELHO,
-  VERDE,
-  AZUL,
-  AMARELO
-};
-
-Cor sequencia[13];
+int sequencia[13];
 
 // Configuracao LEDs
 int limiteLED;
@@ -34,7 +27,7 @@ void iniciaJogo();
 
 void piscaLED();
 
-void acendeLed(Cor cor);
+void acendeLed(int cor);
 
 void setup()
 {
@@ -70,7 +63,7 @@ void iniciaJogo()
   limiteLED = 4;
     
   for(int i=0 ;i<13; i++){
-  	sequencia[i] = (Cor)random(0,4);
+  	sequencia[i] = random(1,5);
   }
   
   for(int i=0; i<13; i++){
@@ -111,25 +104,25 @@ void piscaLED()
   }
 }
 
-void acendeLed(Cor cor)
+void acendeLed(int cor)
 {
   int led;
 
   switch (cor)
   {
-    case VERMELHO:
+    case 1:
       led = ledVermelho;
       break;
 
-    case VERDE:
+    case 2:
       led = ledVerde;
       break;
 
-    case AZUL:
+    case 3:
       led = ledAzul;
       break;
 
-    case AMARELO:
+    case 4:
       led = ledAmarelo;
       break;
   }
