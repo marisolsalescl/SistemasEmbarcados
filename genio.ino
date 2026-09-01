@@ -12,10 +12,12 @@ const int ledDelay = 500;
 
 const int buzzer = 11;
 
+int jogo = 0; 
+
 int sequencia[13];
 int passoAtual = 0;
 int limiteSequencia = 4; // Quantidade de passos para a rodada
-int limiteMax = 6; // Quantidade de passos para a rodada
+int limiteMax = 13; // Quantidade de passos para a rodada
 
 int configuraBotao(int b1, int b2, int b3, int b4);
 void iniciaJogo();
@@ -56,68 +58,75 @@ void loop()
       iniciaJogo();
       iniciar = false;
     }
+  
+  	if(jogo)
+    {
 
-    int botaoLido = configuraBotao(
-        buttonPin1,
-        buttonPin2,
-        buttonPin3,
-        buttonPin4
-    );
+      int botaoLido = configuraBotao(
+          buttonPin1,
+          buttonPin2,
+          buttonPin3,
+          buttonPin4
+      );
 
-    if (botaoLido != -1) {
-		tocaSomBotao(botaoLido);
+      if (botaoLido != -1) {
+          tocaSomBotao(botaoLido);
 
-        Serial.print("Botao pressionado: ");
-        Serial.println(botaoLido);
+          Serial.print("\nBotao pressionado: ");
+          Serial.println(botaoLido);
 
-        acendeLed(botaoLido);
+          acendeLed(botaoLido);
 
-        if (entradaJogador(botaoLido, sequencia[passoAtual])) {
+          if (entradaJogador(botaoLido, sequencia[passoAtual])) {
 
-            Serial.println("CORRETO!");
+              Serial.println("CORRETO!");
 
-            passoAtual++;
+              passoAtual++;
 
-            // Jogador terminou a sequência atual
-            if (passoAtual == limiteSequencia) {
+              // Jogador terminou a sequência atual
+              if (passoAtual == limiteSequencia) {
 
-                Serial.println("Sequencia completa!");
+                  Serial.println("Sequencia completa!");
 
-                limiteSequencia++;
-                passoAtual = 0;
+                  limiteSequencia++;
+                  passoAtual = 0;
 
-                musicaNivel();
+                  musicaNivel();
 
-                // Mostra a nova sequência
-                piscaLED();
+                  // Mostra a nova sequência
+                  piscaLED();
 
-                // Chegou ao limite máximo
-                if (limiteSequencia > limiteMax) {
-                  Serial.println("Vitoria!");
-                    musicaVitoria();
-                    iniciaJogo();
-                }
-            }
+                  // Chegou ao limite máximo
+                  if (limiteSequencia > limiteMax) {
+                    Serial.println("Vitoria!");
+                      musicaVitoria();
+                      iniciaJogo();
+                  }
+              }
 
-        }
-        else {
+          }
+          else {
 
-            Serial.println("ERRADO! Reiniciando");
+              Serial.println("ERRADO! Inicie o jogo novamente.");
 
-            delay(1000);
+              musicaDerrota();
+            
+              delay(1000);
+			
+              jogo = 0;
+          }
 
-            iniciaJogo();
-        }
-
-        delay(300); // Debounce simples
+          delay(300); // Debounce simples
+      }
     }
 }
 
 void iniciaJogo() {
+  	jogo = 1;
 	musicaInicio();
     limiteSequencia = 4;
     passoAtual = 0;
-    Serial.print("\nSequencia\n");
+    Serial.print("\nSequencia inteira\n");
     for(int i = 0; i < limiteMax; i++){
         sequencia[i] = random(1, 5);
       Serial.print(sequencia[i]);
@@ -136,7 +145,7 @@ int configuraBotao(int b1, int b2, int b3, int b4) {
 }
 
 void piscaLED() {
-    Serial.print("sequencia:");
+    Serial.print("\nSequencia nivel:");
 
     for (int i = 0; i < limiteSequencia; i++) {
         delay(300);
@@ -166,8 +175,6 @@ bool entradaJogador(int botaoPressionado, int sequenciaAtual) {
     acendeLed(sequenciaAtual);
     return true;
   }else {
-	musicaDerrota();
-    acendeLed(sequenciaAtual);
     return false;
   }
 }
