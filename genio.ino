@@ -1,3 +1,4 @@
+int buttonPin0 = 2;
 int buttonPin1 = 3;
 int buttonPin2 = 4;
 int buttonPin3 = 5;
@@ -9,9 +10,9 @@ const int ledAzul = 8;
 const int ledAmarelo = 7;
 const int ledDelay = 500;
 
-int sequencia[13]; //teste
+int sequencia[13];
 int passoAtual = 0;
-int limiteLED = 4; // Quantidade de passos para a rodada
+int limiteSequencia;
 
 int configuraBotao(int b1, int b2, int b3, int b4);
 void iniciaJogo();
@@ -19,10 +20,13 @@ void piscaLED();
 void acendeLed(int cor);
 bool entradaJogador(int botaoPressionado, int sequenciaAtual);
 
+volatile bool iniciar = false;
+
 void setup() {
     Serial.begin(9600);
     randomSeed(analogRead(A0));
-
+	
+  	pinMode(buttonPin0, INPUT_PULLUP);
     pinMode(buttonPin1, INPUT_PULLUP);
     pinMode(buttonPin2, INPUT_PULLUP);
     pinMode(buttonPin3, INPUT_PULLUP);
@@ -32,11 +36,21 @@ void setup() {
     pinMode(ledVerde, OUTPUT);
     pinMode(ledAzul, OUTPUT);
     pinMode(ledAmarelo, OUTPUT);
-
-    iniciaJogo();
+  
+  	attachInterrupt(
+      digitalPinToInterrupt(buttonPin0),
+      interrupcaoInicio,
+      FALLING
+    );
 }
 
 void loop() { 
+  	if(iniciar)
+    {
+      iniciaJogo();
+      iniciar = false;
+    }
+  	
     int botaoLido = configuraBotao(buttonPin1, buttonPin2, buttonPin3, buttonPin4);
 
     if (botaoLido != -1) {
@@ -63,10 +77,10 @@ void loop() {
 }
 
 void iniciaJogo() {
-    limiteLED = 4;
+    limiteSequencia = 4;
     passoAtual = 0;
-    Serial.print("sequencia");
-    for(int i = 0; i < limiteLED; i++){
+    Serial.print("\nSequencia\n");
+    for(int i = 0; i < 13; i++){
         sequencia[i] = random(1, 5);
       Serial.print(sequencia[i]);
       
@@ -84,7 +98,7 @@ int configuraBotao(int b1, int b2, int b3, int b4) {
 }
 
 void piscaLED() {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < limiteSequencia; i++) {
         delay(300);
         acendeLed(sequencia[i]);
     }
@@ -114,4 +128,9 @@ bool entradaJogador(int botaoPressionado, int sequenciaAtual) {
     acendeLed(sequenciaAtual);
     return false;
   }
+}
+
+void interrupcaoInicio()
+{
+  iniciar = true;
 }
