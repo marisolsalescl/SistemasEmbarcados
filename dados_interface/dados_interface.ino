@@ -68,6 +68,17 @@ void loop() {
     }
   }
   
+  if (pause == 1)
+  {
+    piscaTela();
+  }
+  
+  if (pause != pause_anterior)
+  {
+    lcd.setBacklight(1);
+    pause_anterior = pause;
+  }
+  
   delay(100);
 }
 
@@ -110,9 +121,13 @@ void atualizarValoresTela2() {
 
 void interrupcaoInicio()
 {
-  if (pause == 1 && pause_anterior == 0){
-  	pause = false;
-  } else {
-    pause = true;
-  }
+  pause = !pause;
+}
+
+void piscaTela(){
+  lcd.setBacklight(1);  
+  delay(500);
+
+  lcd.setBacklight(0); 
+  delay(500);
 }
