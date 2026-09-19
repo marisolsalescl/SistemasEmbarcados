@@ -7,19 +7,28 @@ int luminosidadeLDR;
 int temperaturaDHT = 40;
 int luminosidadeDHT = 15;
 
-int buttonTela = 2;
-int buttonPause = 3;
+int buttonTela = 3;
+int buttonPause = 2;
 
 int telaAtual = 1;
 int telaAnterior = 0;
 
 int estBotaoAnterior = HIGH;
 
+int pause = 0;
+int pause_anterior = 0;
+
 void setup() {
   pinMode(buttonTela, INPUT_PULLUP);
   pinMode(buttonPause, INPUT_PULLUP);
   temperaturaNTC = 
   lcd.begin(16, 2);
+  
+  attachInterrupt(
+    digitalPinToInterrupt(buttonPause),
+    interrupcaoInicio,
+    FALLING
+  );
 
 }
 
@@ -51,10 +60,12 @@ void loop() {
     telaAnterior = telaAtual;
   }
   
-  if (telaAtual == 1){
-  	atualizarValoresTela1();
-  } else if (telaAtual == 2){
-    atualizarValoresTela2();
+  if (pause == 0){
+   	if (telaAtual == 1){
+      atualizarValoresTela1();
+    } else if (telaAtual == 2){
+      atualizarValoresTela2();
+    }
   }
   
   delay(100);
@@ -95,4 +106,13 @@ void atualizarValoresTela2() {
   lcd.setCursor(10, 1);
   lcd.print(luminosidadeDHT);
   lcd.print("%  ");
+}
+
+void interrupcaoInicio()
+{
+  if (pause == 1 && pause_anterior == 0){
+  	pause = false;
+  } else {
+    pause = true;
+  }
 }
