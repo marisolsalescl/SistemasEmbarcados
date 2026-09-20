@@ -2,255 +2,180 @@
 #include <LiquidCrystal_I2C.h>
 #include <DHT.h>
 #include <math.h>
+#include <Bounce2.h> // Adicionada biblioteca para os botões
 
+// ====================
+// DHT11
+// ====================
 #define DHTPIN 6
 #define DHTTYPE DHT11
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHTPIN, DHTTYPE);
 
-
 // ====================
 // NTC
 // ====================
-
 #define PIN_NTC A1
 
-const float R_FIXO = 10000.0;      // Resistor fixo: 10kΩ
-const float R0_NTC = 10000.0;      // NTC: 10kΩ
-const float T0_KELVIN = 298.15;    // 25°C em Kelvin
-const float BETA = 3950.0;         // Beta do NTC
+const float R_FIXO = 10000.0;    // Resistor fixo: 10kΩ
+const float R0_NTC = 10000.0;    // NTC: 10kΩ
+const float T0_KELVIN = 298.15;  // 25°C em Kelvin
+const float BETA = 3950.0;       // Beta do NTC
 
-float temperaturaNTC = 30;
-
+float temperaturaNTC = 0;
 
 // ====================
 // LDR
 // ====================
-
 const int pinoLDR = A0;
-
-int valorLDR;          // leitura bruta do ADC
-int luminosidadeLDR;   // porcentagem (0 a 100)
-
+int valorLDR;
+int luminosidadeLDR;
 
 // ====================
-// DHT11
+// LEITURAS DHT
 // ====================
-
-int temperaturaDHT = 40;
-int umidadeDHT = 15;
-
+int temperaturaDHT = 0;
+int umidadeDHT = 0;
 
 // ====================
 // BOTÕES
 // ====================
+const int buttonTela = 3;   // Botão para trocar de tela
+const int buttonPause = 2;  // Botão de interrupção (Pause) - Pino 2 suporta interrupção no Uno/Nano
 
-int buttonTela = 3;
-int buttonPause = 2;
-
+// Instâncias do Bounce2
+Bounce debouncerTela = Bounce();
 
 // ====================
 // CONTROLE DAS TELAS
 // ====================
-
 int telaAtual = 1;
 int telaAnterior = 0;
-int estBotaoAnterior = HIGH;
-
 
 // ====================
-// PAUSE
+// PAUSE E TEMPO
 // ====================
+volatile bool pause = false;
+bool pauseAnterior = false;
 
-volatile int pause = 0;
-int pause_anterior = 0;
+unsigned long tempoAnteriorLeitura = 0;
+const unsigned long INTERVALO_LEITURA = 1000; // Atualiza sensores a cada 1 segundo sem travar os botões
 
+// Protótipos das funções
+float lerTemperaturaNTC();
+void desenharLayoutTela1();
+void atualizarValoresTela1();
+void desenharLayoutTela2();
+void atualizarValoresTela2();
+void interrupcaoPause();
+void piscaTela();
 
 // ====================
 // SETUP
 // ====================
-
 void setup() {
-
   Serial.begin(9600);
-
   dht.begin();
 
-  pinMode(buttonTela, INPUT_PULLUP);
+  // Configuração do botão de troca de tela com Bounce2
+  debouncerTela.attach(buttonTela, INPUT_PULLUP);
+  debouncerTela.interval(25); // Debounce de 25ms
+
+  // Configuração do botão de Pause (Interrupção Externa)
   pinMode(buttonPause, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPause), interrupcaoPause, FALLING);
 
   lcd.init();
   lcd.backlight();
-
-  attachInterrupt(
-    digitalPinToInterrupt(buttonPause),
-    interrupcaoInicio,
-    FALLING
-  );
 }
-
 
 // ====================
 // LOOP
 // ====================
-
 void loop() {
+  // 1. Atualiza a leitura do botão de tela continuamente
+  debouncerTela.update();
 
-  // ====================
-  // LEITURA DO LDR
-  // ====================
-
-  valorLDR = analogRead(pinoLDR);
-
-  luminosidadeLDR = map(valorLDR, 0, 679, 0, 100);
-  luminosidadeLDR = constrain(luminosidadeLDR, 0, 100);
-
-  Serial.print("LDR ADC: ");
-  Serial.print(valorLDR);
-  Serial.print(" | Luminosidade: ");
-  Serial.print(luminosidadeLDR);
-  Serial.println("%");
-
-
-  // ====================
-  // LEITURA DO NTC
-  // ====================
-
-  temperaturaNTC = lerTemperaturaNTC();
-
-  Serial.print("ADC NTC: ");
-  Serial.println(analogRead(PIN_NTC));
-
-  Serial.print("Temperatura NTC: ");
-  Serial.print(temperaturaNTC);
-  Serial.println(" C");
-
-
-  // ====================
-  // LEITURA DO DHT11
-  // ====================
-
-  temperaturaDHT = dht.readTemperature();
-  umidadeDHT = dht.readHumidity();
-
-
-  // ====================
-  // BOTÃO DA TELA
-  // ====================
-
-  int estBotaoAtual = digitalRead(buttonTela);
-
-  if (estBotaoAtual == LOW && estBotaoAnterior == HIGH) {
-
+  if (debouncerTela.fell()) { // Detecta quando o botão de tela foi pressionado
     if (telaAtual == 1) {
       telaAtual = 2;
-    }
-    else {
+    } else {
       telaAtual = 1;
     }
-
-    delay(50);
   }
 
-  estBotaoAnterior = estBotaoAtual;
+  // 2. Executa a leitura dos sensores e atualização sem usar delay()
+  unsigned long tempoAtual = millis();
+  if (tempoAtual - tempoAnteriorLeitura >= INTERVALO_LEITURA) {
+    tempoAnteriorLeitura = tempoAtual;
 
+    // Leitura LDR
+    valorLDR = analogRead(pinoLDR);
+    luminosidadeLDR = map(valorLDR, 0, 679, 0, 100);
+    luminosidadeLDR = constrain(luminosidadeLDR, 0, 100);
 
-  // ====================
-  // TROCA DE TELA
-  // ====================
+    // Leitura NTC
+    temperaturaNTC = lerTemperaturaNTC();
 
+    // Leitura DHT
+    temperaturaDHT = dht.readTemperature();
+    umidadeDHT = dht.readHumidity();
+
+    // Exibição Serial
+    Serial.print("NTC: "); Serial.print(temperaturaNTC);
+    Serial.print(" C | LDR: "); Serial.print(luminosidadeLDR);
+    Serial.print("% | DHT Temp: "); Serial.print(temperaturaDHT);
+    Serial.print(" C | Umid: "); Serial.println(umidadeDHT);
+  }
+
+  // 3. Atualização da Interface LCD
   if (telaAtual != telaAnterior) {
-
-    if (telaAtual == 1) {
-      desenharLayoutTela1();
-    }
-
-    if (telaAtual == 2) {
-      desenharLayoutTela2();
-    }
-
+    if (telaAtual == 1) desenharLayoutTela1();
+    if (telaAtual == 2) desenharLayoutTela2();
     telaAnterior = telaAtual;
   }
 
-
-  // ====================
-  // ATUALIZAÇÃO DOS VALORES
-  // ====================
-
-  if (pause == 0) {
-
+  // 4. Lógica de Atualização/Pause
+  if (!pause) {
     if (telaAtual == 1) {
       atualizarValoresTela1();
-    }
-    else if (telaAtual == 2) {
+    } else if (telaAtual == 2) {
       atualizarValoresTela2();
     }
-  }
-
-
-  // ====================
-  // PISCA DURANTE PAUSE
-  // ====================
-
-  if (pause == 1) {
+  } else {
     piscaTela();
   }
 
-  if (pause != pause_anterior) {
-
-    lcd.backlight();
-
-    pause_anterior = pause;
+  // Restaura o backlight quando sai do modo Pause
+  if (pause != pauseAnterior) {
+    if (!pause) lcd.backlight();
+    pauseAnterior = pause;
   }
-
-  delay(1000);
 }
 
-
 // ==================================================
-// FUNÇÃO DO NTC
+// FUNÇÕES AUXILIARES
 // ==================================================
-
 float lerTemperaturaNTC() {
-
   int adc = analogRead(PIN_NTC);
+  if (adc == 0) adc = 1;
 
-  if (adc == 0) {
-    adc = 1;
-  }
-
-  float resistenciaNtc =
-    R_FIXO * (450.0 / adc - 1.0);
-
-  float tempKelvin =
-    1.0 / (
-      (1.0 / T0_KELVIN) +
-      (log(resistenciaNtc / R0_NTC) / BETA)
-    );
+  float resistenciaNtc = R_FIXO * (250.0 / adc - 1.0);
+  float tempKelvin = 1.0 / ((1.0 / T0_KELVIN) + (log(resistenciaNtc / R0_NTC) / BETA));
 
   return tempKelvin - 273.15;
 }
 
-
-// ==================================================
-// TELA 1
-// ==================================================
-
 void desenharLayoutTela1() {
-
   lcd.clear();
-
   lcd.setCursor(0, 0);
   lcd.print("Temp NTC: ");
-
   lcd.setCursor(0, 1);
   lcd.print("Lumi LDR: ");
 }
 
-
 void atualizarValoresTela1() {
-
   lcd.setCursor(10, 0);
   lcd.print(temperaturaNTC, 1);
   lcd.print("C  ");
@@ -260,25 +185,15 @@ void atualizarValoresTela1() {
   lcd.print("%  ");
 }
 
-
-// ==================================================
-// TELA 2
-// ==================================================
-
 void desenharLayoutTela2() {
-
   lcd.clear();
-
   lcd.setCursor(0, 0);
   lcd.print("Temp DHT: ");
-
   lcd.setCursor(0, 1);
   lcd.print("Umid DHT: ");
 }
 
-
 void atualizarValoresTela2() {
-
   lcd.setCursor(10, 0);
   lcd.print(temperaturaDHT);
   lcd.print("C  ");
@@ -288,28 +203,30 @@ void atualizarValoresTela2() {
   lcd.print("%  ");
 }
 
+// ISR (Interrupt Service Routine)
+void interrupcaoPause() {
+  static unsigned long ultimoTempoInterrupcao = 0;
+  unsigned long tempoInterrupcao = millis();
 
-// ==================================================
-// INTERRUPÇÃO
-// ==================================================
-
-void interrupcaoInicio() {
-
-  pause = !pause;
+  // Debounce básico para a interrupção (200ms)
+  if (tempoInterrupcao - ultimoTempoInterrupcao > 200) {
+    pause = !pause;
+  }
+  ultimoTempoInterrupcao = tempoInterrupcao;
 }
 
-
-// ==================================================
-// PISCA LCD
-// ==================================================
-
 void piscaTela() {
+  static unsigned long ultimoPisca = 0;
+  static bool estadoBacklight = true;
 
-  lcd.backlight();
-
-  delay(500);
-
-  lcd.noBacklight();
-
-  delay(500);
+  // Pisca o LCD sem travar a execução do programa com delay()
+  if (millis() - ultimoPisca >= 500) {
+    ultimoPisca = millis();
+    estadoBacklight = !estadoBacklight;
+    if (estadoBacklight) {
+      lcd.backlight();
+    } else {
+      lcd.noBacklight();
+    }
+  }
 }
