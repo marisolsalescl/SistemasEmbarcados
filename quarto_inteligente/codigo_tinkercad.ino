@@ -31,6 +31,7 @@ const int   VEL_VENT     = 200;   // velocidade do ventilador (0 a 255)
 // ---------------- Tempos (millis no lugar de delay) ----------------
 const unsigned long TEMPO_ABERTURA_MS = 1500;  // tela "Quarto Inteligente" no inicio
 const unsigned long INTERVALO_MS      = 100;   // de quanto em quanto tempo o sistema atualiza
+const unsigned long INTERVALO_SERIAL_MS = 5000;  // de quanto em quanto tempo envia o status
 
 Servo janela;
 Adafruit_LiquidCrystal lcd(0);
@@ -41,6 +42,7 @@ bool ventLigado   = false;
 
 bool mostrandoAbertura = true;       // true enquanto a tela de abertura esta no LCD
 unsigned long ultimaAtualizacao = 0; // instante (millis) da ultima atualizacao
+unsigned long ultimoEnvioSerial = 0; // instante (millis) do ultimo status enviado
 
 const int botoes[3] = {BTN_MODO, BTN_JANELA, BTN_VENT};
 int estadoAnt[3] = {HIGH, HIGH, HIGH};
@@ -96,6 +98,49 @@ void atualizarDisplay(float temp, bool chovendo) {
   lcd.print(ventLigado ? "ON " : "OFF");
 }
 
+// Le os comandos que chegam pela Serial (uma letra por comando)
+// J e V passam para o modo manual; senao o automatico desfaria o comando
+void lerComandosSerial() {
+  while (Serial.available() > 0) {
+    char comando = Serial.read();
+
+    switch (comando) {
+      case 'A': case 'a':
+        modoAuto = true;
+        Serial.println("> Modo AUTOMATICO");
+        break;
+      case 'M': case 'm':
+        modoAuto = false;
+        Serial.println("> Modo MANUAL");
+        break;
+      case 'J': case 'j':
+        modoAuto = false;
+        janelaAberta = !janelaAberta;
+        Serial.println(janelaAberta ? "> Janela ABERTA" : "> Janela FECHADA");
+        break;
+      case 'V': case 'v':
+        modoAuto = false;
+        ventLigado = !ventLigado;
+        Serial.println(ventLigado ? "> Ventilador LIGADO" : "> Ventilador DESLIGADO");
+        break;
+      case '\n': case '\r':           // fim de linha do monitor serial: ignora
+        break;
+      default:
+        Serial.println("> Comando invalido. Use A, M, J ou V");
+        break;
+    }
+  }
+}
+
+// Envia pela Serial as leituras e o estado do sistema
+void enviarStatus(float temp, int chuvaV) {
+  Serial.print("T=");        Serial.print(temp);
+  Serial.print(" Chuva=");   Serial.print(chuvaV);
+  Serial.print(" Modo=");    Serial.print(modoAuto ? "AUTO" : "MANUAL");
+  Serial.print(" Janela=");  Serial.print(janelaAberta ? "ABERTA" : "FECHADA");
+  Serial.print(" Vent=");    Serial.println(ventLigado ? "ON" : "OFF");
+}
+
 void setup() {
   for (int i = 0; i < 3; i++) pinMode(botoes[i], INPUT_PULLUP);
   pinMode(PIN_EN, OUTPUT);
@@ -113,6 +158,8 @@ void setup() {
   lcd.print("Inteligente");
 
   Serial.begin(9600);
+  
+  Serial.println("Comandos: A=auto  M=manual  J=janela  V=ventilador");
 }
 
 void loop() {
@@ -133,6 +180,9 @@ void loop() {
   bool btnJanela = apertou(1);
   bool btnVent   = apertou(2);
 
+  // -------- Comandos da Serial --------
+  lerComandosSerial();
+  
   // -------- Logica --------
   if (modoAuto) {
     if (quente && !chovendo) {         // quente e sem chuva: abre a janela
@@ -152,11 +202,10 @@ void loop() {
 
   janela.write(janelaAberta ? ANG_ABERTA : ANG_FECHADA);
   controlarVentilador(ventLigado);
-
-  // -------- Display --------
-  atualizarDisplay(temp, chovendo);
-
-  Serial.print("T=");      Serial.print(temp);
-  Serial.print(" Chuva="); Serial.print(chuvaV);
-  Serial.print(" Modo=");  Serial.println(modoAuto ? "AUTO" : "MANUAL");
+ 
+  // -------- Serial (status a cada INTERVALO_SERIAL_MS) --------
+  if (agora - ultimoEnvioSerial >= INTERVALO_SERIAL_MS) {
+    ultimoEnvioSerial = agora;
+    enviarStatus(temp, chuvaV);
+  }
 }
