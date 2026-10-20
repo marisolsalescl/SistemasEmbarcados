@@ -28,12 +28,19 @@ const int   ANG_FECHADA  = 0;     // angulo do servo com a janela fechada
 const int   ANG_ABERTA   = 90;    // angulo do servo com a janela aberta
 const int   VEL_VENT     = 200;   // velocidade do ventilador (0 a 255)
 
+// ---------------- Tempos (millis no lugar de delay) ----------------
+const unsigned long TEMPO_ABERTURA_MS = 1500;  // tela "Quarto Inteligente" no inicio
+const unsigned long INTERVALO_MS      = 100;   // de quanto em quanto tempo o sistema atualiza
+
 Servo janela;
 Adafruit_LiquidCrystal lcd(0);
 
 bool modoAuto     = true;
 bool janelaAberta = false;
 bool ventLigado   = false;
+
+bool mostrandoAbertura = true;       // true enquanto a tela de abertura esta no LCD
+unsigned long ultimaAtualizacao = 0; // instante (millis) da ultima atualizacao
 
 const int botoes[3] = {BTN_MODO, BTN_JANELA, BTN_VENT};
 int estadoAnt[3] = {HIGH, HIGH, HIGH};
@@ -64,6 +71,14 @@ void controlarVentilador(bool ligar) {
 
 // Mostra temperatura, chuva, modo e estado dos atuadores no LCD
 void atualizarDisplay(float temp, bool chovendo) {
+  
+  // Tela de abertura: fica no LCD ate dar TEMPO_ABERTURA_MS, sem travar o sistema
+  if (mostrandoAbertura) {
+    if (millis() < TEMPO_ABERTURA_MS) return;
+    lcd.clear();
+    mostrandoAbertura = false;
+  }
+  
   // Linha 1: T:30.2C  Chuva
   lcd.setCursor(0, 0);
   lcd.print("T:");
@@ -96,13 +111,17 @@ void setup() {
   lcd.print("Quarto");
   lcd.setCursor(0, 1);
   lcd.print("Inteligente");
-  delay(1500);
-  lcd.clear();
 
   Serial.begin(9600);
 }
 
 void loop() {
+  
+  // So atualiza a cada INTERVALO_MS; no resto do tempo o loop segue livre
+  unsigned long agora = millis();
+  if (agora - ultimaAtualizacao < INTERVALO_MS) return;
+  ultimaAtualizacao = agora;
+  
   // -------- Leituras --------
   float temp     = lerTemperatura();
   int   chuvaV   = analogRead(PIN_CHUVA);
@@ -140,6 +159,4 @@ void loop() {
   Serial.print("T=");      Serial.print(temp);
   Serial.print(" Chuva="); Serial.print(chuvaV);
   Serial.print(" Modo=");  Serial.println(modoAuto ? "AUTO" : "MANUAL");
-
-  delay(100);
 }
