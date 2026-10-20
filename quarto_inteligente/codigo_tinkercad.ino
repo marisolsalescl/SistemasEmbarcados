@@ -13,8 +13,9 @@ const int PIN_TEMP   = A0;   // TMP36 (Vout)
 const int PIN_CHUVA  = A1;   // Potenciometro = sensor de chuva
 // LCD I2C: SDA -> A4 | SCL -> A5  (obrigatorio no Arduino Uno)
 
-const int PIN_IN2    = 2;    // L293D 2A
+const int BTN_TELA   = 2;    // Botao troca a tela (interrupcao externa INT0)
 const int PIN_IN1    = 3;    // L293D 1A (PWM: controla a velocidade)
+const int PIN_IN2    = 4;    // L293D 2A
 const int PIN_EN     = 9;    // L293D 1-2EN (liga/desliga a ponte)
 const int PIN_SERVO  = 10;   // Servo da janela (SIG)
 const int BTN_MODO   = 11;   // Botao troca o modo (AUTO / MANUAL)
@@ -32,6 +33,7 @@ const int   VEL_VENT     = 200;   // velocidade do ventilador (0 a 255)
 const unsigned long TEMPO_ABERTURA_MS = 1500;  // tela "Quarto Inteligente" no inicio
 const unsigned long INTERVALO_MS      = 100;   // de quanto em quanto tempo o sistema atualiza
 const unsigned long INTERVALO_SERIAL_MS = 5000;  // de quanto em quanto tempo envia o status
+const unsigned long DEBOUNCE_MS         = 200;   // ignora repiques do botao dentro desse tempo
 
 Servo janela;
 Adafruit_LiquidCrystal lcd(0);
@@ -43,6 +45,9 @@ bool ventLigado   = false;
 bool mostrandoAbertura = true;       // true enquanto a tela de abertura esta no LCD
 unsigned long ultimaAtualizacao = 0; // instante (millis) da ultima atualizacao
 unsigned long ultimoEnvioSerial = 0; // instante (millis) do ultimo status enviado
+// Flag levantada pela interrupcao do botao da tela (volatile: muda dentro da ISR)
+volatile bool botaoTelaApertado = false;
+
 
 const int botoes[3] = {BTN_MODO, BTN_JANELA, BTN_VENT};
 int estadoAnt[3] = {HIGH, HIGH, HIGH};
@@ -53,6 +58,17 @@ bool apertou(int i) {
   bool borda = (estadoAnt[i] == HIGH && atual == LOW);
   estadoAnt[i] = atual;
   return borda;
+}
+
+// Interrupcao do botao da tela (pino 2): roda sozinha quando o botao e apertado.
+// Fica curta de proposito: so levanta a flag, quem age e o loop.
+void isrBotaoTela() {
+  static unsigned long ultimoAperto = 0;
+  unsigned long agora = millis();
+  if (agora - ultimoAperto > DEBOUNCE_MS) {
+    botaoTelaApertado = true;
+    ultimoAperto = agora;
+  }
 }
 
 float lerTemperatura() {
@@ -147,6 +163,9 @@ void setup() {
   pinMode(PIN_IN1, OUTPUT);
   pinMode(PIN_IN2, OUTPUT);
   controlarVentilador(false);
+  
+  pinMode(BTN_TELA, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BTN_TELA), isrBotaoTela, FALLING);
 
   janela.attach(PIN_SERVO);
   janela.write(ANG_FECHADA);
@@ -179,6 +198,12 @@ void loop() {
   if (apertou(0)) modoAuto = !modoAuto;
   bool btnJanela = apertou(1);
   bool btnVent   = apertou(2);
+  
+  // Botao da tela: a interrupcao avisou que foi apertado
+  if (botaoTelaApertado) {
+    botaoTelaApertado = false;
+    Serial.println("> Botao da tela apertado (interrupcao)");
+  }
 
   // -------- Comandos da Serial --------
   lerComandosSerial();
