@@ -28,12 +28,19 @@ const int   LIMIAR_CHUVA = 500;   // leitura do potenciometro abaixo disso = cho
 const int   ANG_FECHADA  = 0;     // angulo do servo com a janela fechada
 const int   ANG_ABERTA   = 90;    // angulo do servo com a janela aberta
 const int   VEL_VENT     = 200;   // velocidade do ventilador (0 a 255)
+const int   LEITURA_MAX  = 1023;  // maior valor do analogRead (ADC de 10 bits)
+const int   PWM_MAX      = 255;   // maior valor do analogWrite
 
 // ---------------- Tempos (millis no lugar de delay) ----------------
 const unsigned long TEMPO_ABERTURA_MS = 1500;  // tela "Quarto Inteligente" no inicio
 const unsigned long INTERVALO_MS      = 100;   // de quanto em quanto tempo o sistema atualiza
 const unsigned long INTERVALO_SERIAL_MS = 5000;  // de quanto em quanto tempo envia o status
 const unsigned long DEBOUNCE_MS         = 200;   // ignora repiques do botao dentro desse tempo
+
+// ---------------- Telas do LCD ----------------
+const int TELA_RESUMO   = 0;   // temperatura, chuva, modo, janela e ventilador
+const int TELA_DETALHES = 1;   // leitura crua da chuva e PWM do ventilador
+const int NUM_TELAS     = 2;
 
 Servo janela;
 Adafruit_LiquidCrystal lcd(0);
@@ -42,6 +49,7 @@ bool modoAuto     = true;
 bool janelaAberta = false;
 bool ventLigado   = false;
 
+int  telaAtual = TELA_RESUMO;        // tela mostrada no LCD
 bool mostrandoAbertura = true;       // true enquanto a tela de abertura esta no LCD
 unsigned long ultimaAtualizacao = 0; // instante (millis) da ultima atualizacao
 unsigned long ultimoEnvioSerial = 0; // instante (millis) do ultimo status enviado
@@ -87,16 +95,8 @@ void controlarVentilador(bool ligar) {
   }
 }
 
-// Mostra temperatura, chuva, modo e estado dos atuadores no LCD
-void atualizarDisplay(float temp, bool chovendo) {
-  
-  // Tela de abertura: fica no LCD ate dar TEMPO_ABERTURA_MS, sem travar o sistema
-  if (mostrandoAbertura) {
-    if (millis() < TEMPO_ABERTURA_MS) return;
-    lcd.clear();
-    mostrandoAbertura = false;
-  }
-  
+// Tela 1 - resumo: temperatura, chuva, modo e estado dos atuadores
+void mostrarTelaResumo(float temp, bool chovendo) {
   // Linha 1: T:30.2C  Chuva
   lcd.setCursor(0, 0);
   lcd.print("T:");
@@ -112,6 +112,41 @@ void atualizarDisplay(float temp, bool chovendo) {
   lcd.print(janelaAberta ? "ABR " : "FEC ");
   lcd.print("V:");
   lcd.print(ventLigado ? "ON " : "OFF");
+}
+
+// Tela 2 - detalhes: intensidade da chuva e potencia do ventilador, em %
+void mostrarTelaDetalhes(int chuvaV) {
+  // Leitura menor = mais molhado, por isso o map e invertido (0 -> 100%)
+  int chuvaPct = map(chuvaV, 0, LEITURA_MAX, 100, 0);
+  int ventPct  = map(ventLigado ? VEL_VENT : 0, 0, PWM_MAX, 0, 100);
+
+  // Linha 1: Chuva: 52%
+  lcd.setCursor(0, 0);
+  lcd.print("Chuva: ");
+  lcd.print(chuvaPct);
+  lcd.print("%    ");                 // apaga sobras quando o numero diminui
+
+  // Linha 2: Vent: 78%
+  lcd.setCursor(0, 1);
+  lcd.print("Vent: ");
+  lcd.print(ventPct);
+  lcd.print("%    ");
+}
+
+// Escolhe qual tela mostrar no LCD
+void atualizarDisplay(float temp, int chuvaV, bool chovendo) {
+  // Tela de abertura: fica no LCD ate dar TEMPO_ABERTURA_MS, sem travar o sistema
+  if (mostrandoAbertura) {
+    if (millis() < TEMPO_ABERTURA_MS) return;
+    lcd.clear();
+    mostrandoAbertura = false;
+  }
+
+  if (telaAtual == TELA_RESUMO) {
+    mostrarTelaResumo(temp, chovendo);
+  } else {
+    mostrarTelaDetalhes(chuvaV);
+  }
 }
 
 // Le os comandos que chegam pela Serial (uma letra por comando)
@@ -199,10 +234,11 @@ void loop() {
   bool btnJanela = apertou(1);
   bool btnVent   = apertou(2);
   
-  // Botao da tela: a interrupcao avisou que foi apertado
+  // Botao da tela: a interrupcao avisou que foi apertado -> proxima tela
   if (botaoTelaApertado) {
     botaoTelaApertado = false;
-    Serial.println("> Botao da tela apertado (interrupcao)");
+    telaAtual = (telaAtual + 1) % NUM_TELAS;
+    lcd.clear();                       // limpa o texto da tela anterior
   }
 
   // -------- Comandos da Serial --------
@@ -228,6 +264,9 @@ void loop() {
   janela.write(janelaAberta ? ANG_ABERTA : ANG_FECHADA);
   controlarVentilador(ventLigado);
  
+  // -------- Display --------
+  atualizarDisplay(temp, chuvaV, chovendo);
+  
   // -------- Serial (status a cada INTERVALO_SERIAL_MS) --------
   if (agora - ultimoEnvioSerial >= INTERVALO_SERIAL_MS) {
     ultimoEnvioSerial = agora;
