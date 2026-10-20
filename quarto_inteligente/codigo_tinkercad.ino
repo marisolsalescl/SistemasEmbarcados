@@ -16,6 +16,7 @@ const int PIN_CHUVA  = A1;   // Potenciometro = sensor de chuva
 const int BTN_TELA   = 2;    // Botao troca a tela (interrupcao externa INT0)
 const int PIN_IN1    = 3;    // L293D 1A (PWM: controla a velocidade)
 const int PIN_IN2    = 4;    // L293D 2A
+const int PIN_LED    = 5;    // LED indicador de temperatura (PWM: controla o brilho)
 const int PIN_EN     = 9;    // L293D 1-2EN (liga/desliga a ponte)
 const int PIN_SERVO  = 10;   // Servo da janela (SIG)
 const int BTN_MODO   = 11;   // Botao troca o modo (AUTO / MANUAL)
@@ -30,6 +31,8 @@ const int   ANG_ABERTA   = 90;    // angulo do servo com a janela aberta
 const int   VEL_VENT     = 200;   // velocidade do ventilador (0 a 255)
 const int   LEITURA_MAX  = 1023;  // maior valor do analogRead (ADC de 10 bits)
 const int   PWM_MAX      = 255;   // maior valor do analogWrite
+const float TEMP_LED_MIN = 20.0;  // a partir daqui o LED comeca a acender
+const float TEMP_LED_MAX = 35.0;  // a partir daqui o LED fica no brilho maximo
 
 // ---------------- Tempos (millis no lugar de delay) ----------------
 const unsigned long TEMPO_ABERTURA_MS = 1500;  // tela "Quarto Inteligente" no inicio
@@ -93,6 +96,13 @@ void controlarVentilador(bool ligar) {
     digitalWrite(PIN_EN, LOW);
     analogWrite(PIN_IN1, 0);
   }
+}
+
+// LED indicador: quanto mais quente, mais forte o brilho (saida PWM)
+void atualizarLedTemperatura(float temp) {
+  float t = constrain(temp, TEMP_LED_MIN, TEMP_LED_MAX);
+  int brilho = (t - TEMP_LED_MIN) * PWM_MAX / (TEMP_LED_MAX - TEMP_LED_MIN);
+  analogWrite(PIN_LED, brilho);
 }
 
 // Tela 1 - resumo: temperatura, chuva, modo e estado dos atuadores
@@ -197,6 +207,7 @@ void setup() {
   pinMode(PIN_EN, OUTPUT);
   pinMode(PIN_IN1, OUTPUT);
   pinMode(PIN_IN2, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
   controlarVentilador(false);
   
   pinMode(BTN_TELA, INPUT_PULLUP);
@@ -263,6 +274,7 @@ void loop() {
 
   janela.write(janelaAberta ? ANG_ABERTA : ANG_FECHADA);
   controlarVentilador(ventLigado);
+  atualizarLedTemperatura(temp);
  
   // -------- Display --------
   atualizarDisplay(temp, chuvaV, chovendo);
